@@ -1,0 +1,4 @@
+frameflip_bridge/__pycache__/
+*.pyc
+*.zip
+.vscode/

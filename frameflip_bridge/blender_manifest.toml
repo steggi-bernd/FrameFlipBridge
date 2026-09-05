@@ -1,0 +1,21 @@
+schema_version = "1.0.0"
+
+id = "frameflip_bridge"
+version = "0.1.0"
+name = "FrameFlip Bridge"
+tagline = "Meldet laufende Renders an FrameFlip"
+maintainer = "Bernd Steckmeister"
+type = "add-on"
+
+license = ["SPDX:GPL-3.0-or-later"]
+
+blender_version_min = "4.2.0"
+
+tags = ["Render", "Pipeline"]
+
+# Gesprochen wird ausschliesslich mit 127.0.0.1 - dem eigenen Rechner. Blender
+# unterscheidet in den Berechtigungen nicht zwischen lokal und Internet, deshalb
+# steht hier trotzdem "network".
+[permissions]
+network = "Meldet den Renderfortschritt an FrameFlip auf demselben Rechner"
+files = "Liest Port und Token aus der Handschlagdatei im Benutzerprofil"
