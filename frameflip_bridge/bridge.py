@@ -72,6 +72,14 @@ class Sender:
         self._connected = threading.Event()
         self._dropped = 0
 
+        # Wird nach JEDEM Verbindungsaufbau als Erstes geschickt.
+        #
+        # Ohne das verliert eine spaet gestartete Gegenstelle den Anschluss: Sie hat
+        # den Beginn des Auftrags nie gesehen und kann mit den folgenden Meldungen
+        # nichts anfangen - sie weiss ja nicht, zu welchem Auftrag sie gehoeren.
+        self._preamble = None
+        self._preamble_gate = threading.Lock()
+
     # ------------------------------------------------------------------ Zustand
 
     @property
@@ -106,6 +114,14 @@ class Sender:
         thread, self._thread = self._thread, None
         if thread and thread.is_alive():
             thread.join(timeout=1.0)
+
+    def set_preamble(self, message):
+        """
+        Was jede neue Verbindung zuerst erfahren muss - hier die Beschreibung des
+        laufenden Auftrags. ``None`` loescht sie, sobald der Auftrag endet.
+        """
+        with self._preamble_gate:
+            self._preamble = message
 
     def send(self, message):
         """Aus dem Handler aufzurufen. Kehrt sofort zurueck, immer."""
@@ -184,6 +200,14 @@ class Sender:
 
             greeting = json.dumps({"type": "hello", "token": token}) + "\n"
             sock.sendall(greeting.encode("utf-8"))
+
+            with self._preamble_gate:
+                preamble = self._preamble
+
+            if preamble is not None:
+                sock.sendall((json.dumps(preamble) + "\n").encode("utf-8"))
+                debug.log("Auftrag nach Verbindungsaufbau erneut gemeldet")
+
             return sock
         except OSError:
             return None

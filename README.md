@@ -1,78 +1,87 @@
 # FrameFlip Bridge
 
-**Blender-Addon, das laufende Renders an [FrameFlip](https://github.com/steggi-bernd/FrameFlip) meldet.**
+**Blender add-on that reports running renders to
+[FrameFlip](https://github.com/steggi-bernd/FrameFlip).**
 
-Einmal installiert, meldet er jeden Render dieser Blender-Instanz — ohne dass
-irgendwo etwas eingeschaltet werden muss. FrameFlip zeigt daraufhin Fortschritt,
-Sample-Zähler, Zeit je Frame und die Auslastung des Rechners an, und lädt jeden
-fertig geschriebenen Frame sofort in die Vorschau.
+Installed once, it reports every render of that Blender instance — nothing needs to
+be switched on anywhere. FrameFlip then shows progress, the sample counter, time per
+frame and the machine's load, and loads every finished frame into the preview as
+soon as it is written.
 
-## Was er tut — und was ausdrücklich nicht
+## What it does — and deliberately does not
 
-Der Addon ist mit Absicht dünn. Er reicht weiter, **was nur Blender weiß**:
+The add-on is thin on purpose. It passes on **what only Blender knows**:
 
-* welcher Auftrag beginnt — Szene, Engine, Frame-Bereich, Auflösung, Ausgabepfad
-* welcher Frame gerade läuft und welche Datei geschrieben wurde
-* Blenders eigenen Fortschrittstext, unausgewertet
+* which job starts — scene, engine, frame range, resolution, output path
+* which frame is running and which file was written
+* Blender's own progress text, unparsed
 
-Alles über den Rechner — CPU, Arbeitsspeicher, GPU — misst FrameFlip selbst. Es
-läuft ohnehin dauerhaft im Tray und kann es besser.
+Everything about the machine — CPU, memory, GPU — FrameFlip measures itself. It runs
+in the tray anyway and is in a better position to do it.
 
-Diese Aufteilung ist keine Bequemlichkeit, sondern hält den Addon frei von
-**Fremdpaketen**, von **Netzwerkcode** und von **Geheimnissen**:
+That split is not convenience. It keeps the add-on free of **third-party packages**,
+of **network code** and of **secrets**:
 
-* Nur Pythons Standardbibliothek. Nichts zu installieren, nichts zu aktualisieren.
-* Gesprochen wird ausschließlich mit `127.0.0.1` — dem eigenen Rechner.
-* Der Kopplungsschlüssel fürs Handy liegt bei FrameFlip. Blender speichert
-  Passwörter in Addon-Einstellungen im Klartext; dort hätte er nichts verloren.
+* Python's standard library only. Nothing to install, nothing to update.
+* It talks to `127.0.0.1` exclusively — the local machine.
+* The pairing key for the phone stays with FrameFlip. Blender stores add-on
+  preference passwords in plain text; it has no business being there.
 
-**Keine Bilddaten** gehen über die Brücke. Der Addon meldet einen Pfad, FrameFlip
-liest die Datei selbst — das kostet Blender nichts.
+**No image data** crosses the bridge. The add-on reports a path, FrameFlip reads the
+file itself — that costs Blender nothing.
 
 ## Installation
 
-Blender 4.2 und neuer:
+Blender 4.2 and newer:
 
-1. `frameflip_bridge` als ZIP packen
+1. Pack `frameflip_bridge` as a ZIP
 2. *Edit → Preferences → Get Extensions → Install from Disk*
 
-Ältere Versionen (3.6 bis 4.1): dasselbe ZIP über *Add-ons → Install*.
+Older versions (3.6 to 4.1): the same ZIP via *Add-ons → Install*.
 
-Ob es funktioniert, steht in *Properties → Output → FrameFlip*: „Verbunden",
-„Verbinde …" oder „FrameFlip läuft nicht".
+Whether it works is shown in *Properties → Output → FrameFlip*: "Connected",
+"Connecting …" or "FrameFlip is not running".
 
-## Der Grundsatz, der den ganzen Aufbau bestimmt
+## The principle the whole design follows
 
-> **Handler dürfen nichts tun außer einen Eintrag in eine Warteschlange legen.**
+> **Handlers must do nothing except put an entry on a queue.**
 
-Blenders Render-Handler laufen auf dem Hauptthread. Alles, was dort wartet, hält
-den Render an — ein Socket-Schreibvorgang an einer schlechten Verbindung kostet
-Sekunden **je Frame**. Deshalb legt der Handler nur ab, und ein eigener Thread
-trägt fort.
+Blender's render handlers run on the main thread. Anything that waits there stalls
+the render — a socket write on a bad connection costs seconds **per frame**. So the
+handler only enqueues, and a thread of its own carries it away.
 
-Auch die Warteschlange blockiert nie. Läuft FrameFlip nicht, fallen die ältesten
-Meldungen heraus. Ein verlorener Zwischenstand ist belanglos; ein hängender Render
-ist es nicht.
+The queue never blocks either. If FrameFlip is not running, the oldest messages fall
+out. A lost intermediate reading is meaningless; a stalled render is not.
 
-## Was Blender nicht hergibt
+## What Blender does not offer
 
-Zwei Grenzen, am Quelltext geprüft und in
-[FrameFlips Technikdokument](https://github.com/steggi-bernd/FrameFlip/blob/main/docs/Blender-Bridge.md)
-mit Fundstellen belegt:
+Two limits, verified against the source and documented with references in
+[FrameFlip's technical note](https://github.com/steggi-bernd/FrameFlip/blob/main/docs/Blender-Bridge.md):
 
-**Ein laufender Render lässt sich nicht abbrechen.** Es gibt nur
-`RENDER_OT_render`; die Animationsschleife bricht allein über das globale Flag
-`G.is_break` ab, das keine Python-Anbindung hat. Auch `frame_end` nachträglich zu
-senken hilft nicht — der Endwert wird beim Start der Schleife festgehalten.
+**A running render cannot be cancelled.** There is only `RENDER_OT_render`; the
+animation loop breaks solely on the global `G.is_break` flag, which has no Python
+binding. Lowering `frame_end` afterwards does not help either — the end value is
+captured when the loop starts.
 
-**Der Fortschrittstext ist in der Oberfläche arm.** Restzeit, Speicher und der
-Sample-Zähler stehen nur bei `blender -b` darin. Deshalb wird er defensiv
-ausgewertet — drüben in FrameFlip, nicht hier — und keine Anzeige hängt davon ab,
-ob er sich lesen lässt.
+**The progress text is engine- and version-specific.** Cycles and EEVEE write it
+differently, and it changes between versions. So it is parsed defensively — over in
+FrameFlip, not here — and no display depends on whether it can be read at all.
 
-Beides spricht dafür, Renders als eigenen Hintergrundprozess zu starten. Das
-übernimmt FrameFlip, nicht dieser Addon: Es läuft im Tray weiter, wenn Blender
-längst geschlossen ist.
+Both point towards running renders as a separate process. That is FrameFlip's job,
+not this add-on's: it keeps running in the tray long after Blender is closed.
+
+## Diagnostics
+
+*Properties → Output → FrameFlip → Diagnostics* shows what the add-on is doing and
+writes the same lines to a file.
+
+Started from Steam or a shortcut, Blender has no console window — `print` would go
+nowhere, and an add-on that silently reports nothing is indistinguishable from a
+broken one.
+
+It is built to be removed later: one module with a single function facing outward,
+one separate panel section, one-line calls at the events. Delete `debug.py`, remove
+the calls, done.
 
 ## Tests
 
@@ -80,13 +89,18 @@ längst geschlossen ist.
 python tests/test_bridge.py
 ```
 
-Läuft **ohne Blender**. `bridge.py` importiert kein `bpy` — genau deshalb lässt
-sich der Teil prüfen, auf den es ankommt: Verbindung, Warteschlange und das
-Verhalten bei abwesendem Gegenüber. Dass der Test überhaupt startet, ist zugleich
-der Beweis für diese Trennung.
+Runs **without Blender**. `bridge.py` imports no `bpy` — which is exactly why the
+part that matters can be tested: the connection, the queue, and the behaviour when
+nothing is listening. That the test starts at all is the proof of that separation.
 
-## Lizenz
+## Language
 
-GPL-3.0-or-later. Ein Blender-Addon bindet `bpy` ein und muss deshalb unter der
-GPL stehen. FrameFlip selbst steht unter MIT und bleibt es — die beiden reden über
-einen Socket miteinander, nicht über einen gemeinsamen Prozess.
+Interface texts are English. The comments in the source are German — that is where
+the reasoning behind each decision lives, and translating it would risk losing
+exactly the part worth keeping.
+
+## Licence
+
+GPL-3.0-or-later. A Blender add-on links `bpy` and therefore has to be GPL.
+FrameFlip itself is MIT and stays that way — the two talk to each other over a
+socket, not inside a shared process.

@@ -3,7 +3,7 @@ schema_version = "1.0.0"
 id = "frameflip_bridge"
 version = "0.1.0"
 name = "FrameFlip Bridge"
-tagline = "Meldet laufende Renders an FrameFlip"
+tagline = "Reports running renders to FrameFlip"
 maintainer = "Bernd Steckmeister"
 type = "add-on"
 
@@ -17,5 +17,5 @@ tags = ["Render", "Pipeline"]
 # unterscheidet in den Berechtigungen nicht zwischen lokal und Internet, deshalb
 # steht hier trotzdem "network".
 [permissions]
-network = "Meldet den Renderfortschritt an FrameFlip auf demselben Rechner"
-files = "Liest Port und Token aus der Handschlagdatei im Benutzerprofil"
+network = "Reports render progress to FrameFlip on the same machine"
+files = "Reads port and token from the handshake file in the user profile"

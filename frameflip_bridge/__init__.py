@@ -19,7 +19,7 @@ bl_info = {
     "version": (0, 1, 0),
     "blender": (3, 6, 0),
     "location": "Properties → Output → FrameFlip",
-    "description": "Meldet laufende Renders an FrameFlip",
+    "description": "Reports running renders to FrameFlip",
     "category": "Render",
 }
 

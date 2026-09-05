@@ -226,8 +226,54 @@ def test_reconnects_after_loss():
     check(True, "der Abbruch fuehrt zu keiner Ausnahme")
 
 
+def test_preamble_reaches_a_late_receiver():
+    group("Bruecke - eine spaet gestartete Gegenstelle erfaehrt den Auftrag")
+
+    sender = bridge.Sender()
+    sender.set_preamble({"type": "init", "job": "laeuft", "first": 1, "last": 90})
+
+    # FrameFlip startet erst JETZT - der Auftrag lief da schon.
+    receiver = Receiver()
+    with_handshake(receiver.port, "spaet")
+
+    sender.start()
+    sender.send({"type": "write", "job": "laeuft", "frame": 42})
+
+    deadline = time.time() + 5
+    while time.time() < deadline and len(receiver.lines) < 3:
+        time.sleep(0.05)
+
+    sender.stop()
+    receiver.close()
+
+    kinds = [line.get("type") for line in receiver.lines]
+
+    check(kinds[:2] == ["hello", "init"],
+          "nach dem Handschlag kommt zuerst der Auftrag", str(kinds[:3]))
+    check("write" in kinds, "und danach die laufenden Meldungen", str(kinds))
+
+    # Nach dem Ende darf er nicht erneut angekuendigt werden.
+    sender.set_preamble(None)
+
+    receiver2 = Receiver()
+    with_handshake(receiver2.port, "danach")
+    sender.start()
+
+    deadline = time.time() + 4
+    while time.time() < deadline and not receiver2.lines:
+        time.sleep(0.05)
+
+    sender.stop()
+    receiver2.close()
+
+    kinds2 = [line.get("type") for line in receiver2.lines]
+    check("init" not in kinds2,
+          "ein beendeter Auftrag wird nicht wieder angekuendigt", str(kinds2))
+
+
 def main():
     test_sends_in_order()
+    test_preamble_reaches_a_late_receiver()
     test_never_blocks_without_receiver()
     test_handshake_is_read_defensively()
     test_reconnects_after_loss()

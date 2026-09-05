@@ -34,16 +34,16 @@ class FRAMEFLIP_PT_bridge(bpy.types.Panel):
         layout = self.layout
 
         if bridge.sender.connected:
-            layout.label(text="Verbunden", icon="LINKED")
+            layout.label(text="Connected", icon="LINKED")
         elif bridge.read_handshake() is None:
             column = layout.column(align=True)
-            column.label(text="FrameFlip läuft nicht", icon="UNLINKED")
-            column.label(text="Im Tray starten – die Verbindung kommt von selbst.")
+            column.label(text="FrameFlip is not running", icon="UNLINKED")
+            column.label(text="Start it in the tray – it connects on its own.")
         else:
-            layout.label(text="Verbinde …", icon="SORTTIME")
+            layout.label(text="Connecting …", icon="SORTTIME")
 
         if bridge.sender.dropped:
-            layout.label(text="%d Meldungen verworfen" % bridge.sender.dropped,
+            layout.label(text="%d messages dropped" % bridge.sender.dropped,
                          icon="ERROR")
 
         layout.operator("frameflip.reconnect", icon="FILE_REFRESH")
@@ -55,7 +55,7 @@ class FRAMEFLIP_PT_bridge(bpy.types.Panel):
 class FRAMEFLIP_PT_debug(bpy.types.Panel):
     """Zum spaeteren Entfernen gedacht - siehe Modulkopf."""
 
-    bl_label = "Diagnose"
+    bl_label = "Diagnostics"
     bl_parent_id = "FRAMEFLIP_PT_bridge"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
@@ -67,14 +67,14 @@ class FRAMEFLIP_PT_debug(bpy.types.Panel):
 
         row = layout.row(align=True)
         row.prop(context.scene, "frameflip_debug", toggle=True,
-                 text="Mitschnitt an" if debug.enabled else "Mitschnitt aus")
+                 text="Log on" if debug.enabled else "Log off")
         row.operator("frameflip.open_log", text="", icon="TEXT")
         row.operator("frameflip.clear_log", text="", icon="TRASH")
 
         lines = debug.lines()
 
         if not lines:
-            layout.label(text="Noch nichts aufgezeichnet.")
+            layout.label(text="Nothing recorded yet.")
             return
 
         # Die letzten Zeilen, juengste unten - so liest man ein Protokoll.
@@ -86,10 +86,10 @@ class FRAMEFLIP_PT_debug(bpy.types.Panel):
 
 
 class FRAMEFLIP_OT_reconnect(bpy.types.Operator):
-    """Verbindung zu FrameFlip neu aufbauen"""
+    """Reconnect to FrameFlip"""
 
     bl_idname = "frameflip.reconnect"
-    bl_label = "Neu verbinden"
+    bl_label = "Reconnect"
     bl_options = {"REGISTER"}
 
     def execute(self, context):
@@ -97,22 +97,22 @@ class FRAMEFLIP_OT_reconnect(bpy.types.Operator):
         bridge.sender.start()
 
         debug.log("Verbindung von Hand neu aufgebaut")
-        self.report({"INFO"}, "FrameFlip: Verbindung wird neu aufgebaut")
+        self.report({"INFO"}, "FrameFlip: reconnecting")
         return {"FINISHED"}
 
 
 class FRAMEFLIP_OT_open_log(bpy.types.Operator):
-    """Die Mitschnittdatei im Dateimanager zeigen"""
+    """Show the log file in the file manager"""
 
     bl_idname = "frameflip.open_log"
-    bl_label = "Mitschnitt öffnen"
+    bl_label = "Open log"
     bl_options = {"REGISTER"}
 
     def execute(self, context):
         path = debug.path()
 
         if not os.path.exists(path):
-            self.report({"WARNING"}, "Noch kein Mitschnitt vorhanden")
+            self.report({"WARNING"}, "No log yet")
             return {"CANCELLED"}
 
         try:
@@ -123,17 +123,17 @@ class FRAMEFLIP_OT_open_log(bpy.types.Operator):
             else:
                 subprocess.Popen(["xdg-open", path])
         except OSError as error:
-            self.report({"ERROR"}, "Konnte nicht geöffnet werden: %s" % error)
+            self.report({"ERROR"}, "Could not be opened: %s" % error)
             return {"CANCELLED"}
 
         return {"FINISHED"}
 
 
 class FRAMEFLIP_OT_clear_log(bpy.types.Operator):
-    """Mitschnitt leeren"""
+    """Clear the log"""
 
     bl_idname = "frameflip.clear_log"
-    bl_label = "Mitschnitt leeren"
+    bl_label = "Clear log"
     bl_options = {"REGISTER"}
 
     def execute(self, context):
@@ -159,8 +159,8 @@ def register():
         bpy.utils.register_class(cls)
 
     bpy.types.Scene.frameflip_debug = bpy.props.BoolProperty(
-        name="Mitschnitt",
-        description="Ereignisse in eine Datei schreiben und hier anzeigen",
+        name="Log",
+        description="Write events to a file and show them here",
         default=debug.enabled,
         update=_toggle_debug,
     )

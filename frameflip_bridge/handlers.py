@@ -73,7 +73,7 @@ def on_render_init(scene, *_args):
         render = scene.render
         percent = max(1, render.resolution_percentage) / 100.0
 
-        bridge.sender.send({
+        payload = {
             "type": "init",
             "job": _job["id"],
             "file": bpy.data.filepath or "",
@@ -84,7 +84,11 @@ def on_render_init(scene, *_args):
             "width": int(render.resolution_x * percent),
             "height": int(render.resolution_y * percent),
             "output": _output_directory(scene),
-        })
+        }
+
+        # Merken, damit eine spaeter gestartete Gegenstelle den Auftrag erfaehrt.
+        bridge.sender.set_preamble(payload)
+        bridge.sender.send(payload)
     except (AttributeError, ValueError):
         # Eine unvollstaendige Meldung ist besser als eine Ausnahme im Handler:
         # Blender gibt Fehler aus Handlern nur auf der Konsole aus, und der Nutzer
@@ -146,6 +150,7 @@ def on_render_stats(text, *_args):
 @persistent
 def on_render_complete(scene, *_args):
     debug.log("render_complete")
+    bridge.sender.set_preamble(None)
     bridge.sender.send({"type": "done", "job": _job["id"]})
     _job["id"] = None
 
@@ -153,6 +158,7 @@ def on_render_complete(scene, *_args):
 @persistent
 def on_render_cancel(scene, *_args):
     debug.log("render_cancel")
+    bridge.sender.set_preamble(None)
     bridge.sender.send({"type": "cancel", "job": _job["id"]})
     _job["id"] = None
 
