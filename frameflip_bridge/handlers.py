@@ -17,7 +17,7 @@ import uuid
 import bpy
 from bpy.app.handlers import persistent
 
-from . import bridge
+from . import bridge, debug
 
 #: Wie oft der Fortschrittstext hoechstens weitergereicht wird, in Sekunden.
 #: Blender ruft render_stats deutlich oefter; die Anzeige braucht das nicht.
@@ -66,6 +66,7 @@ def _engine(scene):
 @persistent
 def on_render_init(scene, *_args):
     _job["id"] = _new_job_id()
+    debug.log("render_init")
     _job["last_stats"] = 0.0
 
     try:
@@ -93,6 +94,8 @@ def on_render_init(scene, *_args):
 
 @persistent
 def on_render_pre(scene, *_args):
+    debug.log("render_pre  Frame %d" % scene.frame_current)
+
     if _job["id"] is None:
         on_render_init(scene)
 
@@ -106,6 +109,8 @@ def on_render_pre(scene, *_args):
 @persistent
 def on_render_write(scene, *_args):
     frame = int(scene.frame_current)
+
+    debug.log("render_write Frame %d" % frame)
 
     bridge.sender.send({
         "type": "write",
@@ -133,17 +138,21 @@ def on_render_stats(text, *_args):
 
     _job["last_stats"] = moment
 
+    debug.log("render_stats %r" % text)
+
     bridge.sender.send({"type": "stats", "job": _job["id"], "text": text})
 
 
 @persistent
 def on_render_complete(scene, *_args):
+    debug.log("render_complete")
     bridge.sender.send({"type": "done", "job": _job["id"]})
     _job["id"] = None
 
 
 @persistent
 def on_render_cancel(scene, *_args):
+    debug.log("render_cancel")
     bridge.sender.send({"type": "cancel", "job": _job["id"]})
     _job["id"] = None
 
@@ -163,6 +172,8 @@ _BINDINGS = (
 
 def register():
     unregister()        # doppelte Registrierung nach einem Reload vermeiden
+
+    debug.log("Handler angemeldet")
 
     for name, function in _BINDINGS:
         getattr(bpy.app.handlers, name).append(function)

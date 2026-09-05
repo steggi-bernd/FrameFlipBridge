@@ -18,6 +18,16 @@ import socket
 import threading
 import time
 
+try:
+    from . import debug
+except ImportError:                     # ohne Paketkontext geladen, etwa im Test
+    class debug:                        # noqa: N801 - steht fuer ein Modul
+        """Platzhalter. Haelt bridge.py fuer sich allein lauffaehig."""
+
+        @staticmethod
+        def log(_text):
+            pass
+
 #: Wo FrameFlip Port und Token hinterlegt. Gleiches Benutzerkonto, gleiches Profil.
 HANDSHAKE_NAME = os.path.join("FrameFlip", "bridge.json")
 
@@ -135,6 +145,7 @@ class Sender:
 
                 attempt = 0
                 self._connected.set()
+                debug.log("verbunden")
 
             try:
                 message = self._queue.get(timeout=0.5)
@@ -151,6 +162,8 @@ class Sender:
             except OSError:
                 # Gegenstelle weg. Verbindung fallen lassen und neu aufbauen; die
                 # Meldung ist verloren, was bei einem Zwischenstand nicht schmerzt.
+                debug.log("Verbindung verloren")
+
                 self._close(sock)
                 sock = None
                 self._connected.clear()
