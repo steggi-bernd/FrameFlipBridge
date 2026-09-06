@@ -17,14 +17,14 @@ import uuid
 import bpy
 from bpy.app.handlers import persistent
 
-from . import bridge, debug
+from . import bridge, debug, still
 
 #: Wie oft der Fortschrittstext hoechstens weitergereicht wird, in Sekunden.
 #: Blender ruft render_stats deutlich oefter; die Anzeige braucht das nicht.
 STATS_INTERVAL = 0.5
 
 #: Zustand des laufenden Auftrags. Nur aus dem Hauptthread angefasst.
-_job = {"id": None, "last_stats": 0.0}
+_job = {"id": None, "last_stats": 0.0, "wrote": False}
 
 
 def _new_job_id():
@@ -65,6 +65,8 @@ def _engine(scene):
 
 @persistent
 def on_render_init(scene, *_args):
+    _job["wrote"] = False
+
     _job["id"] = _new_job_id()
     debug.log("render_init")
     _job["last_stats"] = 0.0
@@ -116,6 +118,8 @@ def on_render_write(scene, *_args):
 
     debug.log("render_write Frame %d" % frame)
 
+    _job["wrote"] = True
+
     bridge.sender.send({
         "type": "write",
         "job": _job["id"],
@@ -150,9 +154,26 @@ def on_render_stats(text, *_args):
 @persistent
 def on_render_complete(scene, *_args):
     debug.log("render_complete")
+
+    # Hat Blender nichts geschrieben, war das ein Einzelbild: Das Ergebnis liegt
+    # nur im Speicher und waere sonst verloren. Erst jetzt, nach dem Render -
+    # das Speichern stellt die Ausgabeeinstellungen kurz um, und das mitten in
+    # einem laufenden Render zu tun waere leichtfertig.
+    if not _job["wrote"]:
+        path = still.save()
+
+        if path:
+            bridge.sender.send({
+                "type": "still",
+                "job": _job["id"],
+                "frame": int(scene.frame_current),
+                "path": path,
+            })
+
     bridge.sender.set_preamble(None)
     bridge.sender.send({"type": "done", "job": _job["id"]})
     _job["id"] = None
+    _job["wrote"] = False
 
 
 @persistent
@@ -161,6 +182,7 @@ def on_render_cancel(scene, *_args):
     bridge.sender.set_preamble(None)
     bridge.sender.send({"type": "cancel", "job": _job["id"]})
     _job["id"] = None
+    _job["wrote"] = False
 
 
 # ---------------------------------------------------------------------- An/Ab
